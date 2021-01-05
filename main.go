@@ -39,6 +39,11 @@ func debug(v string) {
 func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		originalMethod := r.Header.Get("X-Original-Method")
+		if originalMethod == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
 		originalURI := r.Header.Get("X-Original-Uri")
 		isOriginalMethodRead := contains([]string{"GET", "HEAD"}, originalMethod)
 		authProvided := r.Header.Get("Authorization") != ""
@@ -48,10 +53,6 @@ func main() {
 		responseCode := http.StatusUnauthorized
 		if allowAnonymous && isOriginalMethodRead {
 			responseCode = http.StatusOK
-		}
-
-		if responseCode != http.StatusOK && originalURI == "/v2/" && isOriginalMethodRead {
-			w.Header().Add("WWW-Authenticate", fmt.Sprintf("Basic realm=\"%s\", charset=\"UTF-8\"", realm))
 		}
 
 		if responseCode != http.StatusOK && authProvided && giteaHost != "" {
@@ -83,6 +84,10 @@ func main() {
 			}
 		}
 		debug(fmt.Sprintf("=> %v", responseCode))
+
+		if responseCode != http.StatusOK {
+			w.Header().Add("WWW-Authenticate", fmt.Sprintf("Basic realm=\"%s\", charset=\"UTF-8\"", realm))
+		}
 		w.WriteHeader(responseCode)
 	})
 
